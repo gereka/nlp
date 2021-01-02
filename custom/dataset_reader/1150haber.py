@@ -18,8 +18,8 @@ import pandas as pd
 logger = logging.getLogger(__name__)
 
 
-@DatasetReader.register("fasttext_reader")
-class 1150HaberReader(DatasetReader):
+@DatasetReader.register("1150haber_reader")
+class Reader1150Haber(DatasetReader):
     """
     # Parameters
 

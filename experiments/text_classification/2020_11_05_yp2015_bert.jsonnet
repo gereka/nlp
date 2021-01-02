@@ -8,7 +8,8 @@ local bert_model = "bert-base-cased";
         "type": "fasttext_reader",
         "tokenizer": {
             "type": "pretrained_transformer",
-            "model_name": bert_model
+            "model_name": bert_model,
+	    "max_length": 510 //accounting for <SEP> and <CLS>
         },
         //"lazy": true,
         "token_indexers": {
@@ -18,9 +19,9 @@ local bert_model = "bert-base-cased";
             }
         }
     },
-  "train_data_path":      "/home/gereka/data/nlp/yelp_review_polarity_csv/train.csv",
-  "validation_data_path": "/home/gereka/data/nlp/yelp_review_polarity_csv/dev.csv",
-  "test_data_path": 	  "/home/gereka/data/nlp/yelp_review_polarity_csv/test.csv",
+  "train_data_path":      "/home/gereka/data/nlp/English/yelp_review_polarity_csv/train.csv",
+  "validation_data_path": "/home/gereka/data/nlp/English/yelp_review_polarity_csv/dev.csv",
+  "test_data_path": 	  "/home/gereka/data/nlp/English/yelp_review_polarity_csv/test.csv",
     "model": {
 //        "namespace": 'tags',
         "type": "basic_classifier",
@@ -43,7 +44,7 @@ local bert_model = "bert-base-cased";
         "batch_sampler": {
             "type": "bucket",
             "sorting_keys": ["tokens"],
-            "batch_size": 32,
+            "batch_size": 16,
             //"max_instances_in_memory": 10000
         }
     },
@@ -61,7 +62,7 @@ local bert_model = "bert-base-cased";
             "lr": 1e-5,
             "weight_decay": 0.2,
         },
-        "cuda_device": -1
+        "cuda_device": 0
     },
   "evaluate_on_test": true
 }
