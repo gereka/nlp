@@ -1,6 +1,4 @@
-#Copied from AllenNLP text_classification_json reader
-#Meant to be used on 1150haber dataset
-#located at http://www.kemik.yildiz.edu.tr/data/File/1150haber.rar
+#meant to be used on csv file with two columns: text and label
 
 from typing import Dict, List, Union
 import logging
@@ -18,8 +16,8 @@ import pandas as pd
 logger = logging.getLogger(__name__)
 
 
-@DatasetReader.register("1150haber_reader")
-class Reader1150Haber(DatasetReader):
+@DatasetReader.register("csvreader")
+class CSVDatasetReader(DatasetReader):
     """
     # Parameters
 
@@ -61,6 +59,7 @@ class Reader1150Haber(DatasetReader):
 
     @overrides
     def _read(self, file_path):
+        #TODO make this more memory efficient, read csv line by line
         df = pd.read_csv(file_path)
         for _, row in df.iterrows():
             text = row["text"]
