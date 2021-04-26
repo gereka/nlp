@@ -23,13 +23,13 @@ def create_csv(path):
                 data.append({'label':label, 'text': text, 'filename':file})
     
     data = pd.DataFrame(data)
-    data.to_csv(os.path.join(path, '1150haber.csv'))
+    data.to_csv(os.path.join(path, '1150haber.csv'), index=False)
     traindev, test = train_test_split(data,test_size = 200, random_state=1848, shuffle=True, stratify=data.label)
-    traindev.to_csv(os.path.join(path, '1150haber_traindev.csv'))
-    test.to_csv(os.path.join(path, '1150haber_test.csv'))
+    traindev.to_csv(os.path.join(path, '1150haber_traindev.csv'), index=False)
+    test.to_csv(os.path.join(path, '1150haber_test.csv'), index=False)
     train,    dev  = train_test_split(traindev, test_size = 200, random_state=1848, shuffle=True, stratify=traindev.label)
-    train.to_csv(os.path.join(path, '1150haber_train.csv'))
-    dev.to_csv(os.path.join(path, '1150haber_dev.csv'))
+    train.to_csv(os.path.join(path, '1150haber_train.csv'), index=False)
+    dev.to_csv(os.path.join(path, '1150haber_dev.csv'), index=False)
 
 
 if __name__ == '__main__':
