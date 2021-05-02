@@ -6,4 +6,4 @@
 # classes and use them.  If you change the name of `my_project`, you'll also need to change it in
 # the same way in the .allennlp_plugins file.
 #from customt.model import *
-from custom.dataset_reader import *
+from agnlp.custom.dataset_reader import *

@@ -1,0 +1,36 @@
+[
+  {
+    "type": "int",
+    "attributes": {
+      "name": "pytorch_seed",
+      "low": 1,
+      "high": 10000
+    }
+  },
+  {
+    "type": "float",
+    "attributes": {
+      "name": "dropout",
+      "low": 0.0,
+      "high": 0.5
+    }
+  },
+  {
+    "type": "float",
+    "attributes": {
+      "name": "learning_rate",
+      "low": 1e-7,
+      "high": 1e-2,
+      "log": true
+    }
+  },
+  {
+    "type": "float",
+    "attributes": {
+      "name": "weight_decay",
+      "low": 1e-7,
+      "high": 1,
+      "log": true
+    }
+  }
+]
