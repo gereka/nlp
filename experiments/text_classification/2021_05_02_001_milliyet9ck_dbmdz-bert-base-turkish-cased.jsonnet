@@ -64,7 +64,12 @@ local weight_decay = std.parseJson(std.extVar('weight_decay'));
             "lr": learning_rate,
             "weight_decay": weight_decay,
         },
-        "cuda_device": 0
+        "cuda_device": 0,
+	"callbacks": [
+	    {
+	        type: 'optuna_pruner',
+            }
+        ],
     },
   "evaluate_on_test": true
 }
