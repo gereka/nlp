@@ -7,3 +7,5 @@
 # the same way in the .allennlp_plugins file.
 #from customt.model import *
 from agnlp.custom.dataset_reader import *
+from agnlp.custom.commands import *
+print('hello from agnlp.custom')
