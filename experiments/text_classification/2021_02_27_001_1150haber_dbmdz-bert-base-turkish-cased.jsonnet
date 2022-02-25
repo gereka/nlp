@@ -16,9 +16,9 @@ local bert_model = "/home/gereka/data/models/dbmdz-bert-base-turkish-cased/";
             }
         }
     },
-  "train_data_path": "/home/gereka/data/nlp/Turkish/1150haber/1150haber_train.csv",
-  "validation_data_path": "/home/gereka/data/nlp/Turkish/1150haber/1150haber_dev.csv",
-  "test_data_path": "/home/gereka/data/nlp/Turkish/1150haber/1150haber_test.csv",
+  "train_data_path": "/home/gereka/data/nlp/Turkish/text_classification/1150haber/1150haber_train.csv",
+  "validation_data_path": "/home/gereka/data/nlp/Turkish/text_classification/1150haber/1150haber_dev.csv",
+  "test_data_path": "/home/gereka/data/nlp/Turkish/text_classification/1150haber/1150haber_test.csv",
     "model": {
         "namespace": 'tags',
         "type": "basic_classifier",
