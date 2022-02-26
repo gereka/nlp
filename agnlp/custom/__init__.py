@@ -8,4 +8,5 @@
 #from customt.model import *
 from agnlp.custom.dataset_reader import *
 from agnlp.custom.commands import *
+from agnlp.custom.modules.seq2seq_encoders import *
 print('hello from agnlp.custom')
