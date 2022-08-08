@@ -1,4 +1,5 @@
 import os
+import pandas as pd
 import numpy as np
 import torch
 import torch.nn as nn
@@ -13,8 +14,14 @@ from torchmetrics import Accuracy
 from sklearn.model_selection import train_test_split
 from datetime import datetime
 
+#Default file locations
+default_datafile  = os.path.expanduser('~/data/nlp/Turkish/spelling/mukayese/binary.csv')
+default_rootdir   = os.path.expanduser('~/outputs/nlp/text_classification/mukayese_lstm')
+default_vocabfile = os.path.expanduser('~/data/nlp/Turkish/spelling/mukayese/binary_letters.txt')
+
 class Net(LightningModule):
-    def __init__(self, vocab_size, edim=100, hdim=100, n_layers=1, drop1=0.5, drop2=0.5, lr=3e-4, wd=2e-1, gamma=0.7):
+    #TODO vocab_size should be instantiated from datamodule but couldn't figure out how to do that.
+    def __init__(self, vocab_size=100, edim=100, hdim=100, n_layers=1, drop1=0.5, drop2=0.5, lr=3e-4, wd=2e-1, gamma=0.7):
         super().__init__()
         self.save_hyperparameters()
         self.test_acc = Accuracy()
@@ -24,7 +31,6 @@ class Net(LightningModule):
                            batch_first=True, dropout=drop2, bidirectional=True)
         self.fcL = nn.Linear(2*edim,1)
 
-
     def forward(self, x):
         x = self.embedding(x)
         x = self.dropout(x)
@@ -33,7 +39,7 @@ class Net(LightningModule):
         return self.fcL(x)
     
     def training_step(self, batch, batch_idx):
-        x, y = batch
+        x, y, l = batch
         logits = self.forward(x)
         loss = F.cross_entropy(logits, y.long())
         self.log("train/loss", loss, on_step=True, on_epoch=True)
@@ -42,7 +48,7 @@ class Net(LightningModule):
         return loss
 
     def validation_step(self, batch, batch_idx):
-        x, y = batch
+        x, y, l = batch
         logits = self.forward(x)
         loss = F.cross_entropy(logits, y.long())
         self.test_acc(logits, y)
@@ -50,7 +56,7 @@ class Net(LightningModule):
         self.log("val/loss", loss)
 
     def test_step(self, batch, batch_idx):
-        x, y = batch
+        x, y, l = batch
         logits = self.forward(x)
         loss = F.cross_entropy(logits, y.long())
         self.test_acc(logits, y)
@@ -74,52 +80,72 @@ class MukayeseDataset(Dataset):
 
     
 class MukayeseDataModule(LightningDataModule):
-    def __init__(self, datafile=os.path.expanduser('~/data/nlp/Turkish/spelling/mukayese/binary.csv'),
-                                                   num_workers=20 ,batch_size=32, test_batch_size=1000):
+    def __init__(self, datafile=default_datafile, vocabfile=default_vocabfile, num_workers=20 ,batch_size=32, test_batch_size=1000):
         super().__init__()
         self.save_hyperparameters()
 
-#    @property
-#    def transform(self):
-#        return T.Compose([T.ToTensor(), T.Normalize((0.1307,), (0.3081,))])
+    def load_vocab(self): 
+        with open(self.hparams.vocabfile, 'r') as inpf:
+            self.vocab = inpf.read().split('\n')
+        self.vocab = ['<UNK>','<PAD>'] + self.vocab
+        self.UNK_index = 0
+        self.PAD_index = 1
+        self.v2i = {w:i for i,w in enumerate(self.vocab)}
+    
+    def tokenize(self, s):
+        return [letter for letter in s]
 
-    def setup(self, stage=None):
-        data = pd.read_csv(self.hparams.datafile)
-        train, test = train_test_split(data,  test_size=0.2,  stratify=data.label, random_state=100)
-        train, val  = train_test_split(train, test_size=0.16, stratify=data.label, random_state=100)
-        train = train.copy()
-        val   = val.copy()
-        test  = test.copy()
+    def index_tokens(self, tokenlist):
+        return [self.v2i.get(t, self.UNK_index) for t in tokenlist]
 
-        train_seq = zip(train.label.tolist(), train.text.tolist())
-        test_seq = zip(test.label.tolist(), test.text.tolist())
-
+    def pad_indexlist(self, indexlist, length):
+        paddinglength = (length - len(indexlist))
+        #TODO throw exception if paddinglength is negative
+        return indexlist + [self.PAD_index] * paddinglength
         
-        train_dataset = datasets.CIFAR10(self.hparams.datapath, train=True, download=True, transform=self.transform)
-        targets = train_dataset.targets
-        self.train_idx, self.val_idx= train_test_split(np.arange(len(targets)),test_size=0.2, stratify=targets, random_state=4343)
+    def pad_indexlists(self, indexlists):
+        length = [len(indexlist) for indexlist in indexlists]
+        maxlen = max(length)
+        paddedlists = [self.pad_indexlist(indexlist, maxlen) for indexlist in indexlists]
+        return paddedlists, length
 
-# No need since no download    
-#    def prepare_data(self) -> None:
-#        datasets.CIFAR10(self.hparams.datapath, download=True)
+    def encode_labels(self, labser):
+        self.labels = labser.unique()
+        self.l2i = {l:i for i,l in enumerate(labser)}
+        return [self.l2i[l] for l in labser]
+    
+    def setup(self, stage=None):
+        self.load_vocab()
+        data = pd.read_csv(self.hparams.datafile)
+        data['text'] = data['text'].apply(self.tokenize).apply(self.index_tokens)
+        data['label'] = self.encode_labels(data['label'])
+        
+        train, test = train_test_split(data,  test_size=0.2,  stratify=data.label,  random_state=100)
+        train, val  = train_test_split(train, test_size=0.16, stratify=train.label, random_state=100)
 
+        self.train = list(zip(train['text'].tolist(),train['label'].tolist()))
+        self.val   = list(zip(val['text'].tolist(),val['label'].tolist()))
+        self.test  = list(zip(test['text'].tolist(),test['label'].tolist()))
+   
+    def collate_fn(self, batch):
+        text, label = batch
+        text, length = self.pad_indexlists(text)
+        return text, label, length
+        
     def train_dataloader(self):
-        train_sampler = torch.utils.data.SubsetRandomSampler(self.train_idx)
-        train_dataset = datasets.CIFAR10(self.hparams.datapath, train=True, download=True, transform=self.transform)
-        return torch.utils.data.DataLoader(train_dataset, batch_size=self.hparams.batch_size, collate_fn=self.collate_fn,
-                                           num_workers=self.hparams.num_workers, sampler=train_sampler)
+        return torch.utils.data.DataLoader(self.train, batch_size=self.hparams.batch_size, collate_fn=self.collate_fn,
+                                           num_workers=self.hparams.num_workers)
 
     def val_dataloader(self):
-        val_sampler = torch.utils.data.SubsetRandomSampler(self.val_idx)
-        train_dataset = datasets.CIFAR10(self.hparams.datapath, train=True, download=True, transform=self.transform)
-        return torch.utils.data.DataLoader(train_dataset, batch_size=self.hparams.test_batch_size, collate_fn=self.collate_fn,
-                                           num_workers=self.hparams.num_workers, sampler=val_sampler)
+        return torch.utils.data.DataLoader(self.val, batch_size=self.hparams.test_batch_size, collate_fn=self.collate_fn,
+                                           num_workers=self.hparams.num_workers)
     
     def test_dataloader(self):
-        test_dataset = datasets.CIFAR10(self.hparams.datapath, train=False, download=False, transform=self.transform)
-        return torch.utils.data.DataLoader(test_dataset, batch_size=self.hparams.test_batch_size, collate_fn=self.collate_fn,
-                                           num_workers = self.hparams.num_workers)
+        return torch.utils.data.DataLoader(self.test, batch_size=self.hparams.test_batch_size, collate_fn=self.collate_fn,
+                                           num_workers=self.hparams.num_workers)
 
+    
+    
 class MyLightningCLI(LightningCLI):
     def add_arguments_to_parser(self, parser):
         parser.add_lightning_class_args(EarlyStopping, "estop")
@@ -131,14 +157,12 @@ def cli_main():
 
     trainer_defaults = {
         'gpus':1,
-        'default_root_dir': os.path.expanduser('~/outputs/nlp/text_classification/mukayese_lstm'),
+        'default_root_dir': default_rootdir,
     }
 
-    datafile = os.path.expanduser('~/data/nlp/Turkish/spelling/mukayese/binary.csv')    
     cli = MyLightningCLI(
         Net, MukayeseDataModule, seed_everything_default=438, save_config_overwrite=True, run=False, trainer_defaults=trainer_defaults
     )
-
 
 
     cli.trainer.fit(cli.model, datamodule=cli.datamodule)
