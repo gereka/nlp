@@ -16,12 +16,12 @@ from datetime import datetime
 
 #Default file locations
 default_datafile  = os.path.expanduser('~/data/nlp/Turkish/spelling/mukayese/binary.csv')
-default_rootdir   = os.path.expanduser('~/outputs/nlp/text_classification/mukayese_lstm')
+default_rootdir   = os.path.expanduser('~/outputs/nlp/text_classification/mukayese_metric_lstm')
 default_vocabfile = os.path.expanduser('~/data/nlp/Turkish/spelling/mukayese/binary_letters.txt')
 
 class Net(LightningModule):
     #TODO vocab_size should be instantiated from datamodule but couldn't figure out how to do that.
-    def __init__(self, vocab_size=100, edim=100, hdim=100, n_layers=1, drop1=0.5, drop2=0.5, lr=3e-4, wd=2e-3, schstep=4, gamma=0.95):
+    def __init__(self, vocab_size=100, edim=100, hdim=100, n_layers=6, drop1=0.5, drop2=0.5, lr=3e-4, wd=2e-3, schstep=4, gamma=0.95):
         super().__init__()
         self.save_hyperparameters()
         self.train_acc = Accuracy()
@@ -31,22 +31,22 @@ class Net(LightningModule):
         self.dropout = nn.Dropout(p=drop1)
         self.rnn = nn.LSTM(input_size = edim, hidden_size = hdim, num_layers = n_layers,
                            batch_first=True, dropout=drop2, bidirectional=True)
-        self.fcL = nn.Linear(2*edim,1)
+        self.classvecs = torch.nn.Parameter(torch.randn((2,2*hdim), requires_grad=True)) 
 
-    def forward(self, x):
+    def forward(self, x, l):
         x = self.embedding(x)
         x = self.dropout(x)
         x, _ = self.rnn(x)
         x = x.mean(dim=1)
         x = self.dropout(x)
-        return self.fcL(x).squeeze(1)
+        return - torch.cdist(x, self.classvecs)**2
     
     def training_step(self, batch, batch_idx):
         x, y, l = batch
         logits = self.forward(x)
-        loss = F.binary_cross_entropy_with_logits(logits, y.float())
+        loss = F.cross_entropy(logits, y.long())
         self.log("train/loss", loss, on_step=True, on_epoch=True)
-        out = (logits>=0).long()
+        out = torch.argmax(logits, axis=1)
         self.train_acc(out, y.long())
         self.log("train/acc", self.train_acc, on_step=False, on_epoch=True)
         return loss
@@ -54,8 +54,8 @@ class Net(LightningModule):
     def validation_step(self, batch, batch_idx):
         x, y, l = batch
         logits = self.forward(x)
-        loss = F.binary_cross_entropy_with_logits(logits, y.float())
-        out = (logits>=0).long()
+        loss = F.cross_entropy(logits, y.long())
+        out = torch.argmax(logits, axis=1)
         self.val_acc(out, y.long())
         self.log("val/acc", self.val_acc)
         self.log("val/loss", loss)
@@ -63,8 +63,8 @@ class Net(LightningModule):
     def test_step(self, batch, batch_idx):
         x, y, l = batch
         logits = self.forward(x)
-        loss = F.binary_cross_entropy_with_logits(logits, y.float())
-        out = (logits>=0).long()
+        loss = F.cross_entropy(logits, y.long())
+        out = torch.argmax(logits, axis=1)
         self.test_acc(out, y.long())
         self.log("test/acc", self.test_acc)
         self.log("test/loss", loss)
