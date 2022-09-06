@@ -21,25 +21,39 @@ default_vocabfile = os.path.expanduser('~/data/nlp/Turkish/spelling/mukayese/bin
 
 class Net(LightningModule):
     #TODO vocab_size should be instantiated from datamodule but couldn't figure out how to do that.
-    def __init__(self, vocab_size=100, edim=100, hdim=100, drop1=0.5, drop2=0.5, lr=3e-4, wd=2e-3, schstep=4, gamma=0.95):
+    def __init__(self, vocab_size=100, edim=256, fcdim=1024, drop1=0.5, lr=3e-4, wd=2e-3, schstep=4, gamma=0.95):
         super().__init__()
         self.save_hyperparameters()
         self.train_acc = Accuracy()
         self.val_acc = Accuracy()
         self.test_acc = Accuracy()
         self.embedding = nn.Embedding(vocab_size+1, edim)
-        self.dropout = nn.Dropout(p=drop1)
-        self.conv = nn.Conv1d(in_channels=edim, out_channels=5, kernel_size=2, stride=1)
-        self.fcL = nn.Linear(5,1)
+        self.convseq = nn.Sequential(
+            nn.Dropout(p=drop1),            
+            nn.Conv1d(in_channels=edim, out_channels=edim, kernel_size=3, stride=1, padding=1),
+            nn.MaxPool1d(kernel_size=3, padding=1),
+            nn.Conv1d(in_channels=edim, out_channels=edim, kernel_size=3, stride=1, padding=1),
+            nn.MaxPool1d(kernel_size=3, padding=1),
+#            nn.Conv1d(in_channels=edim, out_channels=edim, kernel_size=3, stride=1),
+#            nn.Conv1d(in_channels=edim, out_channels=edim, kernel_size=3, stride=1),
+#            nn.Conv1d(in_channels=edim, out_channels=edim, kernel_size=3, stride=1),
+#            nn.Conv1d(in_channels=edim, out_channels=edim, kernel_size=3, stride=1),
+#            nn.MaxPool1d(kernel_size=3),
+            )
+        self.fcseq = nn.Sequential(
+            nn.Linear(edim, fcdim),
+            nn.Dropout(p=drop1),            
+            nn.Linear(fcdim, fcdim),
+            nn.Dropout(p=drop1),            
+            nn.Linear(fcdim, 1),
+            )
 
     def forward(self, x):
         x = self.embedding(x)
         x = x.permute(0,2,1)
-        x = self.dropout(x)
-        x = self.conv(x)
-        x = x.mean(dim=2)
-        x = self.dropout(x)
-        return self.fcL(x).squeeze(1)
+        x = self.convseq(x)
+        x = self.fcseq(x.mean(dim=2))
+        return x.squeeze(1)
     
     def training_step(self, batch, batch_idx):
         x, y, l = batch
