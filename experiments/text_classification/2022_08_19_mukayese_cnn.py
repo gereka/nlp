@@ -21,7 +21,7 @@ default_vocabfile = os.path.expanduser('~/data/nlp/Turkish/spelling/mukayese/bin
 
 class Net(LightningModule):
     #TODO vocab_size should be instantiated from datamodule but couldn't figure out how to do that.
-    def __init__(self, vocab_size=100, edim=256, fcdim=1024, drop1=0.5, lr=3e-4, wd=2e-3, schstep=4, gamma=0.95):
+    def __init__(self, vocab_size=100, edim=128, fcdim=1024, drop1=0.5, lr=3e-4, wd=2e-3, schstep=4, gamma=0.95):
         super().__init__()
         self.save_hyperparameters()
         self.train_acc = Accuracy()
