@@ -46,22 +46,20 @@ class Net(LightningModule):
         return loss
 
     def validation_step(self, batch, batch_idx):
-        #TODO
-        x, y = batch
-        logits = self.forward(x)
-        loss = F.binary_cross_entropy_with_logits(logits, y.float())
-        out = (logits>=0).long()
-        self.val_acc(out, y.long())
+        outputs = self(**batch)
+        loss = outputs.loss
+        logits = outputs.logits
+        out = logits.argmax(dim=1)
+        self.val_acc(out, batch['labels'])
         self.log("val/acc", self.val_acc)
         self.log("val/loss", loss)
 
     def test_step(self, batch, batch_idx):
-        #TODO
-        x, y = batch
-        logits = self.forward(x)
-        loss = F.binary_cross_entropy_with_logits(logits, y.float())
-        out = (logits>=0).long()
-        self.test_acc(out, y.long())
+        outputs = self(**batch)
+        loss = outputs.loss
+        logits = outputs.logits
+        out = logits.argmax(dim=1)
+        self.test_acc(out, batch['labels'])
         self.log("test/acc", self.test_acc)
         self.log("test/loss", loss)
 
@@ -70,10 +68,11 @@ class Net(LightningModule):
         return [optimizer], [torch.optim.lr_scheduler.StepLR(optimizer, step_size=self.hparams.schstep, gamma=self.hparams.gamma)]
 
 class MukayeseDataModule(LightningDataModule):
-    def __init__(self, datafile=default_datafile, pretrained=default_pretrained, num_workers=20 ,batch_size=32, test_batch_size=1000):
+    def __init__(self, datafile=default_datafile, pretrained=default_pretrained, num_workers=20 ,batch_size=32, test_batch_size=2):
         super().__init__()
         self.save_hyperparameters()
         self.tokenizer = AutoTokenizer.from_pretrained(self.hparams.pretrained, use_fast=True)
+        self.PAD_index = self.tokenizer.pad_token_id
 
     def encode_text(self, ser):
         return self.tokenizer.batch_encode_plus(ser.tolist())
@@ -88,7 +87,7 @@ class MukayeseDataModule(LightningDataModule):
         length = [len(indexlist) for indexlist in indexlists]
         maxlen = max(length)
         paddedlists = [self.pad_indexlist(indexlist, maxlen) for indexlist in indexlists]
-        return paddedlists, length
+        return paddedlists
 
     def encode_labels(self, labser):
         self.labels = labser.unique()
@@ -111,7 +110,11 @@ class MukayeseDataModule(LightningDataModule):
         self.test  = list(zip(*[val[c] for c in self.cols]))
    
     def collate_fn(self, batch):
-        return {key: torch.tensor(val) for key,val in dict(zip(self.cols, zip(* batch))).items()}
+        result =  {key: val for key,val in zip(self.cols, zip(* batch))}
+        result2 = {key: self.pad_indexlists(result[key]) for key in self.cols if key!='label'}
+        result2['labels'] = result['label']
+        return {key: torch.tensor(val) for key, val in result2.items()}
+    
         
     def train_dataloader(self):
         return torch.utils.data.DataLoader(self.train, batch_size=self.hparams.batch_size, collate_fn=self.collate_fn,
